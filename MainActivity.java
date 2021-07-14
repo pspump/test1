@@ -1,155 +1,213 @@
-package com.example.testre;
+package com.example.projdatabase;
 
+import androidx.annotation.RequiresApi;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
-import android.os.StrictMode;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import org.apache.http.HttpResponse;
-import org.apache.http.NameValuePair;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.message.BasicNameValuePair;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
-import java.util.ArrayList;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 
 public class MainActivity extends AppCompatActivity {
-
-    EditText t_fullname,t_email,t_password;
-
-    String  v_fullname,v_email,v_password;
-    Button btn_register;
     SessionManager sessionManager;
+    String ipConn = "";
+
+    private String URL = "";
+    private EditText textUsername1,textPassword1;
+    Button Btn_Register;
+    private String jsonResult;
+    ProgressBar pB;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        t_fullname = findViewById(R.id.txtname);
-        t_email= findViewById(R.id.txtuser);
-        t_password = findViewById(R.id.txtpassword);
+        sessionManager = new SessionManager(getApplicationContext());
+        URL = "http://"+sessionManager.getIpconfig().toString()+"app_login.php/";
+
+        textUsername1 = findViewById(R.id.txtuser1);
+        textPassword1 = findViewById(R.id.txtpsword1);
+
     }
 
 
-    public void SaveRegister(View view) {
-        v_fullname = t_fullname.getText().toString().trim();
-        v_email = t_email.getText().toString().trim();
-        v_password = t_password.getText().toString().trim();
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("บันทึกข้อมูล");
-        builder.setMessage("ยืนยันข้อมูลครบถ้วนสมบูรณ์?");
-        builder.setCancelable(false);
-        builder.setPositiveButton("ยืนยัน", new DialogInterface.OnClickListener()
-
-        {
-            public void onClick(DialogInterface dialog, int id)
-            {
-                StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder()
-                        .permitAll().build();
-                StrictMode.setThreadPolicy(policy);
+    public void GoMainMenu(View view) {
+        if (textUsername1.getText().toString().equals("")) {
+            Toast.makeText(getApplicationContext(), "กรุณากรอก ชื่อผู้ใช้!",
+                    Toast.LENGTH_LONG).show();
 
 
-                StrictMode.setThreadPolicy(policy);
+            return;
 
-                ArrayList<NameValuePair> nameValuePairs = new ArrayList<NameValuePair>();
-               // sessionManager = new SessionManager(getApplicationContext());
-              //  String URL="";
-              //  URL = "http://"+sessionManager.getIpconfig().toString()+"register.php";
+        } else if (textPassword1.getText().toString().equals("")) {
+            Toast.makeText(getApplicationContext(), "กรุณากรอกรหัสผ่าน!",
+                    Toast.LENGTH_LONG).show();
 
+            return;
+        } else {
+           accessWebService(URL);
+        }
+    }
 
+        public class JsonReadTask extends AsyncTask<String, Void, String> {
+            @Override
+            protected String doInBackground(String... params) {
+                HttpClient httpclient = new DefaultHttpClient();
+                HttpPost httppost = new HttpPost(params[0]);
                 try {
-
-                    nameValuePairs.add(new BasicNameValuePair("sname",v_fullname));
-                    nameValuePairs.add(new BasicNameValuePair("semail",v_email));
-                    nameValuePairs.add(new BasicNameValuePair("spassword", v_password));
-
-
-                    // Connect Server
-
-
-                    HttpClient httpclient = new DefaultHttpClient();
-
-                    //  HttpPost httppost = new HttpPost(URL);
-                    HttpPost httppost = new HttpPost("https://192.168.100.169/apptest/resgister.php");
-
-
-                    httppost.setEntity(new UrlEncodedFormEntity(nameValuePairs, "UTF-8"));
                     HttpResponse response = httpclient.execute(httppost);
-                    int statusCode =  response.getStatusLine().getStatusCode();
+                    jsonResult = inputStreamToString(response.getEntity().getContent()).toString();
+                } catch (ClientProtocolException e) {
+                    e.printStackTrace();
 
-
-
-                    Toast.makeText(getApplicationContext(),statusCode, Toast.LENGTH_LONG).show();
-
-                    //--------Check status connect
-
-                    if (statusCode == 200) {
-                        ShowWarning("บันทึกข้อมูลเรียบร้อย");
-                        Intent intent = new Intent(getApplicationContext(),MainActivity.class);
-                        startActivity(intent);
-                        finish();
-
-                    } else if (statusCode == 404) {
-                        ShowWarning("ขออภัยเกิดวามผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบ");
-
-                        return;
-                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
 
-                catch (Exception e) {
-                    ShowWarning("ขออภัยเกิดวามผิดพลาดกรุณาตรวจสอบ");
+                return null;
+            }
+
+            private StringBuilder inputStreamToString(InputStream is) {
+                String rLine = "";
+                StringBuilder answer = new StringBuilder();
+                BufferedReader rd = new BufferedReader(new
+                        InputStreamReader(is));
+                try {
+                    while ((rLine = rd.readLine()) != null) {
+                        answer.append(rLine);
+
+                    }
+                } catch (IOException e) {
+                    Toast.makeText(getApplicationContext(), "Error..." + e.toString(), Toast.LENGTH_LONG).show();
+                }
+                return answer;
+            }
+
+            public void onPostExecute(String result) {
+                ListDrwaer();
+            }
+        }
+
+
+     //   @RequiresApi(api = Build.VERSION_CODES.CUPCAKE)
+
+        public void accessWebService (String URLS){
+
+            MainActivity.JsonReadTask task = new MainActivity.JsonReadTask();
+            // passes values for the urls string array
+            URLS = URL + "username=" + textUsername1.getText().toString().trim();
+            URLS = URL + "password=" + textPassword1.getText().toString().trim();
+
+            task.execute(new String[]{URLS});
+        }
+
+        public void ListDrwaer () {
+            ShowWarning("CCC");
+            ShowWarning(textUsername1.toString());
+            ShowWarning(textPassword1.toString());
+
+            try {
+             JSONObject jsonResponse = new JSONObject(jsonResult);
+                JSONArray jsonMainNode = jsonResponse.optJSONArray("data");
+                //ShowWarning("DDD");
+                if (jsonMainNode.length() == 0) {
+                    ShowWarning("ไม่พบข้อมูลกรุณาลองใหม่");
+                    textUsername1.setText("");
+                    textPassword1.setText("");
                     return;
 
-                }
-            }
-        })
-                .setNegativeButton("เปลี่ยนใจ",new DialogInterface.OnClickListener()
-                {
-                    public void onClick(DialogInterface dialog, int id)
-                    {
-                        dialog.cancel();
-                        Intent intent = new Intent(getApplicationContext(),MainActivity.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);//Clear Activity Stack
+                } else if (jsonMainNode.length() > 0) {
+
+                    for (int i = 0; i < jsonMainNode.length(); i++) {
+                        JSONObject jsonChildNode = jsonMainNode.getJSONObject(i);
+
+                        String u_name = jsonChildNode.optString("username");
+
+                        sessionManager.setNAME(u_name);
+
+                        Intent intent = new Intent(getApplicationContext(),Mainmenu.class);
+
+                       intent.putExtra("u_name", u_name);
+
                         startActivity(intent);
                         finish();
                     }
-                });
-        AlertDialog alertDialog = builder.create();
-        alertDialog.show();
+                }
+            }
+            catch (JSONException e) {
 
-
-    }
-    public  void ShowWarning(String xMsg)
-    {
-        AlertDialog.Builder sbuilder = new AlertDialog.Builder(this);
-        sbuilder.setTitle("ALERT");
-        sbuilder.setMessage(xMsg);
-        sbuilder.setCancelable(false);
-        sbuilder.setPositiveButton("OKEY", new DialogInterface.OnClickListener()
-        {
-            @Override
-            public void onClick(DialogInterface dialog, int id)
-            {
-
+                Log.e("TAG", "onClick: ", e);
+                ShowWarning("ERROR Warning" + e);
+                return;
 
             }
-        });
-        AlertDialog selartDialog = sbuilder.create();
-        selartDialog.show();
+        }
+        public void ShowWarning (String xMsg)
+        {
+            AlertDialog.Builder sbuilder = new AlertDialog.Builder(this);
+            sbuilder.setTitle("แจ้งเตือน");
+            sbuilder.setMessage(xMsg)
+                    .setCancelable(false)
+                    .setPositiveButton("ตกลง", new DialogInterface.OnClickListener() {
+                                public void onClick(DialogInterface dialog, int id) {
 
+                                }
+                            });
+            AlertDialog salertDialog = sbuilder.create();
+            salertDialog.show();
+        }
+
+
+
+
+
+
+
+
+           public  void backlogin1(View view){
+
+        Toast.makeText(getApplicationContext(),"Back to Page Login", Toast.LENGTH_LONG).show();
+        Intent intent = new Intent(getApplicationContext(),backlogin.class);
+        startActivity(intent);
+
+    }
+    public  void openregister(View view){
+
+        Toast.makeText(getApplicationContext(),"Going to Register!", Toast.LENGTH_LONG).show();
+        Intent intent = new Intent(getApplicationContext(),pageregister.class);
+        startActivity(intent);
 
     }
 
 
 }
+
+
+
+
+
+
