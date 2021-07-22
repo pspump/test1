@@ -1,0 +1,216 @@
+package com.example.cit3534;
+
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.res.Resources;
+import android.os.AsyncTask;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
+import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.Toast;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
+
+
+public class MainActivity extends AppCompatActivity {
+    SessionManager sessionManager;
+    String ipConn = "";
+  private     String URL ="";
+    private     EditText loguser,logpass;
+    private    String v_user,v_pass;
+    private   String jsonResult;
+
+    @Override
+    protected  void onCreate(Bundle savedInstanceState){
+
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        sessionManager = new SessionManager(getApplicationContext());
+        URL = "http://"+sessionManager.getIpconfig().toString()+"/api_log.php";
+
+        loguser= findViewById(R.id.loguser1);
+        logpass= findViewById(R.id.logpsw);
+
+
+        Resources resources = this.getResources ( );
+
+        int resourceID = resources.getIdentifier ( "catt", "drawable", "com.example.cit3534" );
+
+        ImageView image = ( ImageView ) this.findViewById ( R.id.imagecat );
+
+       image.setImageResource ( resourceID );
+
+
+}
+
+
+
+    public void GoMainMenu(View view) {
+
+        v_user= loguser.getText().toString().trim();
+        v_pass = logpass.getText().toString().trim();
+
+
+        if (v_user.equals("")) {
+            Toast.makeText(getApplicationContext(), "กรุณากรอก ชื่อผู้ใช้!", Toast.LENGTH_LONG).show();
+
+
+            return;
+
+        } else if (v_pass.equals("")) {
+            Toast.makeText(getApplicationContext(), "กรุณากรอกรหัสผ่าน!", Toast.LENGTH_LONG).show();
+
+            return;
+        } else {
+            accessWebService(URL);
+        }
+    }
+    private class JsonReadTask extends AsyncTask<String,Void,String> {
+        @Override
+        protected String doInBackground(String... params) {
+
+            HttpClient httpclient = new DefaultHttpClient();
+            HttpPost httppost = new HttpPost(params[0]);
+
+            try {
+                HttpResponse response =   httpclient.execute(httppost);
+              jsonResult = inputStreamToString(response.getEntity().getContent()).toString();
+            } catch (ClientProtocolException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
+        private StringBuilder inputStreamToString(InputStream is) {
+            String rLine = "";
+            StringBuilder answer = new StringBuilder();
+            BufferedReader rd = new BufferedReader(new InputStreamReader(is));
+            try {
+                while ((rLine = rd.readLine()) != null) {
+                    answer.append(rLine);
+
+                }
+            } catch (IOException e) {
+                Toast.makeText(getApplicationContext(), "Error..." + e.toString(), Toast.LENGTH_LONG).show();
+            }
+            return answer;
+        }
+        @Override
+        protected void onPostExecute(String result) {
+            ListDrwaer();
+
+        }
+
+    }
+    public void accessWebService(String URLS) {
+        MainActivity.JsonReadTask task = new MainActivity.JsonReadTask();
+        // passes values for the urls string array
+        URLS = URLS + "?username=" + v_user+"&ppassword=" + v_pass;
+        task.execute(new String[]{URLS});
+    }
+    public void ListDrwaer() {
+        ArrayList<String> dataArrayList=new ArrayList<>();
+
+        try {
+            JSONObject jsonResponse = new JSONObject(jsonResult);
+            JSONArray jsonMainNode = jsonResponse.optJSONArray("data");
+
+
+         /*   for (int i = 0; i < jsonMainNode.length(); i++) {
+                JSONObject jsonChildNode = jsonMainNode.getJSONObject(i);
+                String ppassword = jsonChildNode.getString("ppassword");
+                String u_name = jsonChildNode.optString("username");
+
+                sessionManager.setNAME(u_name);
+                //  sessionManager.setReturnActivity("");
+                Intent intent = new Intent(getApplicationContext(),MainMN.class);
+                intent.putExtra("username",u_name);
+                startActivity(intent);
+
+            } Collections.reverse(dataArrayList); */
+
+            if (jsonMainNode.length() == 0){
+                ShowWarning("ไม่พบข้อมูลกรุณาลองใหม่");
+                loguser.setText("");
+                logpass.setText("");
+                return;
+            }
+            else if (jsonMainNode.length() > 0){
+
+                for (int i = 0; i < jsonMainNode.length(); i++) {
+                    JSONObject jsonChildNode = jsonMainNode.getJSONObject(i);
+
+                    String u_name = jsonChildNode.optString("username");
+                    ShowWarning("Wellcome"+u_name);
+
+                    new Timer().schedule(new TimerTask() {
+                        @Override
+                        public void run() {
+                            sessionManager.setNAME(u_name);
+                            Intent intent = new Intent(getApplicationContext(),MainMN.class);
+                            intent.putExtra("username",u_name);
+                            startActivity(intent);
+                            finish();
+                        }
+                    }, 1000);
+
+
+                }
+            }
+        } catch (JSONException e) {
+            Log.e("TAG", "onClick: ", e);
+            ShowWarning("ERROR= "+e);
+        }
+
+    }
+    public void ShowWarning(String xMsg)
+    {
+        AlertDialog.Builder sbuilder = new AlertDialog.Builder(this);
+        sbuilder.setTitle("แจ้งเตือน");
+        sbuilder.setMessage(xMsg)
+                .setCancelable(false)
+                .setPositiveButton("ตกลง", new DialogInterface.OnClickListener()
+                        {
+                            public void onClick(DialogInterface dialog, int id)
+                            {
+                            }
+                        });
+        AlertDialog salertDialog = sbuilder.create();
+        salertDialog.show();
+    }
+
+
+
+
+
+
+    public  void openregister(View view){
+
+        Toast.makeText(getApplicationContext(),"Going to Register!", Toast.LENGTH_LONG).show();
+        Intent intent = new Intent(getApplicationContext(),regpage.class);
+        startActivity(intent);
+
+    }
+}
